@@ -1,5 +1,6 @@
 -----------------------------------------------------------------------------
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE CPP               #-}
 -----------------------------------------------------------------------------
@@ -13,6 +14,7 @@ import           Data.Maybe            (fromMaybe, listToMaybe, mapMaybe)
 import           Data.Ord              (comparing, Down(..))
 -----------------------------------------------------------------------------
 import           Miso hiding ((!!))
+import           Miso.FFI.QQ (js)
 import qualified Miso.CSS              as CSS
 import           Miso.CSS.Color
 import           Miso.String           (MisoString, ms)
@@ -80,6 +82,7 @@ data Action
   = ClickSquare Square
   | ComputerMove
   | NewGame
+  | FullScreen
   | NoOp
   deriving (Show, Eq)
 
@@ -142,7 +145,7 @@ attackSquares board (f,r) (Piece side pt) = case pt of
   Rook   -> concatMap (slideSquares board (f,r)) [(-1,0),(1,0),(0,-1),(0,1)]
   Queen  -> concatMap (slideSquares board (f,r))
               [(-1,-1),(-1,1),(1,-1),(1,1),(-1,0),(1,0),(0,-1),(0,1)]
-  King   -> filter inBounds [(f+a,r+b)|a<-[-1..1],b<-[-1..1],(a,b)/=(0,0)]
+  King   -> filter inBounds [(f+a,r+b)|a <- [-1..1],b <- [-1..1], (a,b)/=(0,0)]
 
 isAttackedBy :: Board -> Side -> Square -> Bool
 isAttackedBy board atSide sq =
@@ -151,7 +154,7 @@ isAttackedBy board atSide sq =
 
 findKing :: Board -> Side -> Maybe Square
 findKing board side =
-  listToMaybe [sq | (sq, Piece s King ) <- Map.toList board, s==side ]
+  listToMaybe [sq |(sq, Piece s King)<-Map.toList board,s==side]
 
 isInCheck :: GameState -> Side -> Bool
 isInCheck gs side =
@@ -450,6 +453,8 @@ updateModel :: Action -> Effect parent props Model Action
 updateModel = \case
   NewGame -> modify (const initModel)
 
+  FullScreen -> io_ [js| if (document.documentElement.requestFullscreen) { document.documentElement.requestFullscreen() } else { if (document.documentElement.webkitRequestFullscreen) document.documentElement.webkitRequestFullscreen() }|]
+
   NoOp -> pure ()
 
   ComputerMove -> do
@@ -587,18 +592,12 @@ squareColor :: Int -> Int -> MisoString
 squareColor f r = if even (f + r) then lightSq else darkSq
 
 pieceChar :: Piece -> MisoString
-pieceChar (Piece White King  ) = "♔"
-pieceChar (Piece White Queen ) = "♕"
-pieceChar (Piece White Rook  ) = "♖"
-pieceChar (Piece White Bishop) = "♗"
-pieceChar (Piece White Knight) = "♘"
-pieceChar (Piece White Pawn  ) = "♙"
-pieceChar (Piece Black King  ) = "♚"
-pieceChar (Piece Black Queen ) = "♛"
-pieceChar (Piece Black Rook  ) = "♜"
-pieceChar (Piece Black Bishop) = "♝"
-pieceChar (Piece Black Knight) = "♞"
-pieceChar (Piece Black Pawn  ) = "♟"
+pieceChar (Piece _ King  ) = "♔"
+pieceChar (Piece _ Queen ) = "♕"
+pieceChar (Piece _ Rook  ) = "♖"
+pieceChar (Piece _ Bishop) = "♗"
+pieceChar (Piece _ Knight) = "♘"
+pieceChar (Piece _ Pawn  ) = "♙"
 
 pieceCharSmall :: PieceType -> MisoString
 pieceCharSmall Pawn   = "♟"
@@ -622,7 +621,14 @@ viewGame _ m =
     [ CSS.style_
       [ CSS.margin "0"
       , CSS.padding "0"
-      , CSS.minHeight "100vh"
+      , CSS.position "fixed"
+      , "top" =: "0"
+      , "left" =: "0"
+      , CSS.width "100%"
+      , "height" =: "100%"
+      , "overflow-y" =: "auto"
+      , "overscroll-behavior" =: "none"
+      , "-webkit-overflow-scrolling" =: "touch"
       , CSS.backgroundColor (RGB 49 46 43)
       , CSS.display "flex"
       , CSS.flexDirection "column"
@@ -630,18 +636,20 @@ viewGame _ m =
       , CSS.justifyContent "flex-start"
       , CSS.fontFamily "'Segoe UI', Arial, sans-serif"
       , CSS.boxSizing "border-box"
-      , CSS.paddingTop "24px"
-      , CSS.paddingBottom "24px"
+      , CSS.paddingTop "16px"
+      , CSS.paddingBottom "16px"
+      , CSS.paddingLeft "12px"
+      , CSS.paddingRight "12px"
       ]
     ]
     [ -- Title
       H.div_
         [ CSS.style_
           [ CSS.color (RGB 240 217 181)
-          , CSS.fontSize "28px"
+          , CSS.fontSize "clamp(18px, 5vw, 28px)"
           , CSS.fontWeight "bold"
           , CSS.letterSpacing "4px"
-          , CSS.marginBottom "20px"
+          , CSS.marginBottom "16px"
           , CSS.textAlign "center"
           , CSS.textShadow "0 2px 8px rgba(0,0,0,0.6)"
           ]
@@ -651,10 +659,12 @@ viewGame _ m =
       H.div_
         [ CSS.style_
           [ CSS.display "flex"
-          , CSS.gap "24px"
+          , CSS.gap "16px"
           , CSS.alignItems "flex-start"
           , CSS.flexWrap "wrap"
           , CSS.justifyContent "center"
+          , CSS.width "100%"
+          , CSS.maxWidth (ms (boardPx + 28 + 16 + 280) <> "px")
           ]
         ]
         [ viewBoardPanel m
@@ -676,6 +686,9 @@ viewBoardPanel m =
       , CSS.overflow "hidden"
       , CSS.border "3px solid"
       , CSS.borderColor (RGB 30 25 20)
+      , CSS.width "100%"
+      , CSS.maxWidth (ms (boardPx + 28) <> "px")
+      , CSS.flex "0 1 auto"
       ]
     ]
     [ viewSVGBoard m ]
@@ -684,9 +697,8 @@ viewSVGBoard :: Model -> View Model Action
 viewSVGBoard m =
   SVG.svg_
     [ SP.viewBox_ ("0 0 " <> ms (boardPx + 28) <> " " <> ms (boardPx + 28))
-    , HP.width_  (ms (boardPx + 28))
-    , HP.height_ (ms (boardPx + 28))
-    , CSS.style_ [CSS.display "block"]
+    , HP.width_  "100%"
+    , CSS.style_ [CSS.display "block", "aspect-ratio" =: "1"]
     ]
     ( [ -- Dark background
         SVG.rect_
@@ -844,7 +856,7 @@ renderClickTargets m =
       , HP.width_  (ms sqSize)
       , HP.height_ (ms sqSize)
       , SP.fill_   "transparent"
-      , CSS.style_ [CSS.cursor "pointer"]
+      , CSS.style_ [CSS.cursor "pointer", "touch-action" =: "manipulation"]
       , SVG.onClick (ClickSquare (f,r))
       ]
   | (f,r) <- allSquares
@@ -892,8 +904,9 @@ viewSidebar m =
       [ CSS.display "flex"
       , CSS.flexDirection "column"
       , CSS.gap "14px"
-      , CSS.width "240px"
+      , CSS.flex "1 1 200px"
       , CSS.minWidth "200px"
+      , CSS.maxWidth "280px"
       ]
     ]
     [ viewStatus m
@@ -1054,6 +1067,7 @@ viewControls m =
       ]
     ]
     [ chessBtn (RGB 60 100 60) (RGB 200 240 200) "↺  New Game" NewGame
+    , chessBtn (RGB 30 50 80) (RGB 180 210 255) "⛶  Full Screen" FullScreen
     , case mStatus m of
         Checkmate _ -> gameOverBadge "Game over"
         Stalemate   -> gameOverBadge "Draw"
@@ -1076,14 +1090,16 @@ chessBtn bg fg lbl act =
       , CSS.color fg
       , CSS.border "none"
       , CSS.borderRadius "6px"
-      , CSS.padding "10px"
+      , CSS.padding "12px"
       , CSS.cursor "pointer"
-      , CSS.fontSize "14px"
+      , CSS.fontSize "15px"
       , CSS.fontWeight "bold"
       , CSS.width "100%"
       , CSS.fontFamily "'Segoe UI', Arial, sans-serif"
       , CSS.boxShadow "0 2px 6px rgba(0,0,0,0.3)"
       , CSS.transition "background-color 0.2s ease, transform 0.1s ease"
+      , "touch-action" =: "manipulation"
+      , "-webkit-tap-highlight-color" =: "transparent"
       ]
     , SVG.onClick act
     ]
