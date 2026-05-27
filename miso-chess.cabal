@@ -1,5 +1,5 @@
 cabal-version:          3.0
-name:                   miso-svg
+name:                   miso-chess
 version:                0.1
 
 executable app
@@ -11,7 +11,7 @@ executable app
 
   hs-source-dirs:       src
   main-is:              Main.hs
-  build-depends:        base, containers, miso, mtl
+  build-depends:        base, containers, miso
   default-language:     GHC2021
   default-extensions:   CPP TemplateHaskell
  
