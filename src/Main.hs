@@ -151,7 +151,7 @@ isAttackedBy board atSide sq =
 
 findKing :: Board -> Side -> Maybe Square
 findKing board side =
-  listToMaybe [sq|(sq,Piece s King)<-Map.toList board, s==side]
+  listToMaybe [sq | (sq, Piece s King ) <- Map.toList board, s==side ]
 
 isInCheck :: GameState -> Side -> Bool
 isInCheck gs side =
