@@ -455,7 +455,7 @@ updateModel = \case
   ComputerMove -> do
     m <- get
     case mStatus m of
-      Playing | gsTurn (mGameState m) == Black ->
+      s | s `elem` [Playing, InCheck], gsTurn (mGameState m) == Black ->
         case bestBlackMove (mGameState m) of
           Nothing -> modify $ \m' ->
             m' { mStatus = detectStatus (mGameState m'), mThinking = False }
