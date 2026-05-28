@@ -749,10 +749,14 @@ renderHighlights m =
           | (f,r) <- [from, to]
           ]
 
-      -- Selected square
+      -- Selected square (orange when pinned/no moves, green otherwise)
       selRect = case mSelected m of
         Nothing -> []
-        Just (f,r) -> [overlayRect f r "rgba(20,200,50,0.5)"]
+        Just (f,r) ->
+          let color = if null (mLegalDests m)
+                        then "rgba(220,120,20,0.6)"
+                        else "rgba(20,200,50,0.5)"
+          in [overlayRect f r color]
 
       -- Check highlight
       checkRect = case mStatus m of
@@ -933,6 +937,10 @@ viewStatus m =
             else (RGB 120 30 30,  RGB 255 220 220, "☠ Checkmate! Computer wins.")
         Stalemate  ->
           (RGB 80 70 40, RGB 240 230 180, "½ Stalemate — Draw!")
+      pinnedHint = case (mSelected m, mLegalDests m, mStatus m) of
+        (Just _, [], Playing) -> Just "Piece is pinned — cannot move"
+        (Just _, [], InCheck) -> Just "Cannot resolve check with this piece"
+        _                     -> Nothing
   in H.div_
        [ CSS.style_
          [ CSS.backgroundColor bgColor
@@ -947,6 +955,18 @@ viewStatus m =
          ]
        ]
        [ text msg
+       , case pinnedHint of
+           Just hint ->
+             H.div_
+               [ CSS.style_
+                 [ CSS.marginTop "8px"
+                 , CSS.fontSize "11px"
+                 , CSS.opacity "0.85"
+                 , CSS.fontWeight "normal"
+                 ]
+               ]
+               [ text hint ]
+           Nothing -> H.div_ [] []
        , if mThinking m
            then H.div_
                   [ CSS.style_
