@@ -589,7 +589,7 @@ lightSq = "#F0D9B5"
 darkSq  = "#B58863"
 
 squareColor :: Int -> Int -> MisoString
-squareColor f r = if even (f + r) then lightSq else darkSq
+squareColor f r = if even (f + r) then darkSq else lightSq
 
 pieceChar :: Piece -> MisoString
 pieceChar (Piece _ King  ) = "♔"
