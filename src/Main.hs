@@ -453,8 +453,8 @@ updateModel :: Action -> Effect parent props Model Action
 updateModel = \case
   NewGame -> modify (const initModel)
 
-  FullScreen -> io_ [js| if (document.documentElement.requestFullscreen) { document.documentElement.requestFullscreen() } else { if (document.documentElement.webkitRequestFullscreen) document.documentElement.webkitRequestFullscreen() }|]
-
+  FullScreen -> io_ requestFullscreen
+  
   NoOp -> pure ()
 
   ComputerMove -> do
