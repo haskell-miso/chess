@@ -1115,7 +1115,7 @@ viewStatus m =
                [ CSS.style_
                  [ CSS.marginTop "8px"
                  , CSS.fontSize "11px"
-                 , CSS.opacity "0.85"
+                 , CSS.opacity 0.85
                  , CSS.fontWeight "normal"
                  ]
                ]
@@ -1126,7 +1126,7 @@ viewStatus m =
                   [ CSS.style_
                     [ CSS.marginTop "8px"
                     , CSS.fontSize "11px"
-                    , CSS.opacity "0.8"
+                    , CSS.opacity 0.8
                     , CSS.fontWeight "normal"
                     ]
                   ]
