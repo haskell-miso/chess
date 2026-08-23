@@ -603,14 +603,14 @@ fmtD x = ms (fromIntegral (round (x * 1000) :: Int) / 1000 :: Double)
 -- A single sub-path of a piece (its `d` data plus presentation overrides).
 -- The enclosing group provides the defaults: black outline, 1.5 stroke,
 -- round caps/joins and fill="none".
-pth :: MisoString -> [Attribute Action] -> View Model Action
+pth :: MisoString -> [Attribute Model Action] -> View context Model Action
 pth dd extra = SVG.path_ (SP.d_ dd : extra)
 
 -- The shapes (in a 45x45 box) that make up one piece. White pieces are an
 -- ivory body with a black outline; black pieces are a charcoal body with
 -- pale engraved highlight lines — exactly how the Cburnett set distinguishes
 -- the two sides.
-pieceShape :: Piece -> [View Model Action]
+pieceShape :: Piece -> [View context Model Action]
 pieceShape (Piece side pt) = case pt of
 
   Pawn ->
@@ -727,7 +727,7 @@ pieceShape (Piece side pt) = case pt of
 
 -- A small piece glyph for the captured-pieces tray. Sits on a light tile so
 -- both ivory and charcoal pieces stay legible against the dark sidebar.
-miniPiece :: Side -> PieceType -> View Model Action
+miniPiece :: Side -> PieceType -> View context Model Action
 miniPiece side pt =
   SVG.svg_
     [ SP.viewBox_ "0 0 45 45"
@@ -761,8 +761,8 @@ fileLabel 4 = "e"; fileLabel 5 = "f"; fileLabel 6 = "g"; fileLabel _ = "h"
 -- MAIN VIEW
 -----------------------------------------------------------------------------
 
-viewGame :: props -> Model -> View Model Action
-viewGame _ m =
+viewGame :: context -> props -> Model -> View context Model Action
+viewGame _ _ m =
   H.div_
     [ CSS.style_
       [ CSS.margin "0"
@@ -822,7 +822,7 @@ viewGame _ m =
 -- BOARD PANEL
 -----------------------------------------------------------------------------
 
-viewBoardPanel :: Model -> View Model Action
+viewBoardPanel :: Model -> View context Model Action
 viewBoardPanel m =
   H.div_
     [ CSS.style_
@@ -841,7 +841,7 @@ viewBoardPanel m =
 
 -- Reusable gradient/filter definitions: a soft drop shadow under every piece
 -- and gentle vertical gradients on the light/dark squares for depth.
-svgDefs :: View Model Action
+svgDefs :: View context Model Action
 svgDefs =
   SVG.defs_ []
     [ SVG.filter_
@@ -868,7 +868,7 @@ svgDefs =
         ]
     ]
 
-viewSVGBoard :: Model -> View Model Action
+viewSVGBoard :: Model -> View context Model Action
 viewSVGBoard m =
   SVG.svg_
     [ SP.viewBox_ ("0 0 " <> ms (boardPx + 28) <> " " <> ms (boardPx + 28))
@@ -903,7 +903,7 @@ boardX f = 28 + sqX f
 boardY :: Int -> Int
 boardY r = sqY r
 
-renderSquareBg :: Model -> Square -> View Model Action
+renderSquareBg :: Model -> Square -> View context Model Action
 renderSquareBg _ (f,r) =
   SVG.rect_
     [ SP.x_      (ms (boardX f))
@@ -913,7 +913,7 @@ renderSquareBg _ (f,r) =
     , SP.fill_   (if isDarkSquare f r then "url(#darkSq)" else "url(#lightSq)")
     ]
 
-renderHighlights :: Model -> [View Model Action]
+renderHighlights :: Model -> [View context Model Action]
 renderHighlights m =
   let gs = mGameState m
 
@@ -948,7 +948,7 @@ renderHighlights m =
 
   in lastMoveRects ++ selRect ++ checkRect
 
-overlayRect :: Int -> Int -> MisoString -> View Model Action
+overlayRect :: Int -> Int -> MisoString -> View context Model Action
 overlayRect f r fill =
   SVG.rect_
     [ SP.x_      (ms (boardX f))
@@ -958,13 +958,13 @@ overlayRect f r fill =
     , SP.fill_   fill
     ]
 
-renderLegalDots :: Model -> [View Model Action]
+renderLegalDots :: Model -> [View context Model Action]
 renderLegalDots m =
   [ renderDot f r (Map.member (f,r) (gsBoard (mGameState m)))
   | (f,r) <- mLegalDests m
   ]
 
-renderDot :: Int -> Int -> Bool -> View Model Action
+renderDot :: Int -> Int -> Bool -> View context Model Action
 renderDot f r isCapture
   | isCapture =
       -- Ring indicator for captures
@@ -984,7 +984,7 @@ renderDot f r isCapture
         , SP.fill_ "rgba(20,190,40,0.55)"
         ]
 
-renderPiece :: Model -> (Square, Piece) -> View Model Action
+renderPiece :: Model -> (Square, Piece) -> View context Model Action
 renderPiece m ((f,r), piece) =
   let isSel = mSelected m == Just (f,r)
       sc    = pieceScale * (if isSel then 1.09 else 1.0)
@@ -1006,7 +1006,7 @@ renderPiece m ((f,r), piece) =
        (pieceShape piece)
 
 -- Transparent click-target rects on top of everything
-renderClickTargets :: Model -> [View Model Action]
+renderClickTargets :: Model -> [View context Model Action]
 renderClickTargets m =
   [ SVG.rect_
       [ SP.x_      (ms (boardX f))
@@ -1020,7 +1020,7 @@ renderClickTargets m =
   | (f,r) <- allSquares
   ]
 
-renderLabels :: [View Model Action]
+renderLabels :: [View context Model Action]
 renderLabels =
   -- Rank labels (left side, 1-8 from bottom)
   [ SVG.text_
@@ -1055,7 +1055,7 @@ renderLabels =
 -- SIDEBAR
 -----------------------------------------------------------------------------
 
-viewSidebar :: Model -> View Model Action
+viewSidebar :: Model -> View context Model Action
 viewSidebar m =
   H.div_
     [ CSS.style_
@@ -1074,7 +1074,7 @@ viewSidebar m =
     ]
 
 -- Status box
-viewStatus :: Model -> View Model Action
+viewStatus :: Model -> View context Model Action
 viewStatus m =
   let (bgColor, fgColor, msg) = case mStatus m of
         Playing    ->
@@ -1135,7 +1135,7 @@ viewStatus m =
        ]
 
 -- Player info
-viewPlayers :: Model -> View Model Action
+viewPlayers :: Model -> View context Model Action
 viewPlayers m =
   H.div_
     [ CSS.style_
@@ -1148,7 +1148,7 @@ viewPlayers m =
     , viewPlayerRow m White  "You" "♔"
     ]
 
-viewPlayerRow :: Model -> Side -> MisoString -> MisoString -> View Model Action
+viewPlayerRow :: Model -> Side -> MisoString -> MisoString -> View context Model Action
 viewPlayerRow m side label icon =
   let isActive = gsTurn (mGameState m) == side
       bg = if isActive then RGB 80 70 55 else RGB 45 40 35
@@ -1184,7 +1184,7 @@ viewPlayerRow m side label icon =
        ]
 
 -- Captured pieces
-viewCaptured :: Model -> View Model Action
+viewCaptured :: Model -> View context Model Action
 viewCaptured m =
   H.div_
     [ CSS.style_
@@ -1199,7 +1199,7 @@ viewCaptured m =
     , captRow "Captured by computer:" White (mWhiteCapt m)
     ]
 
-captRow :: MisoString -> Side -> [PieceType] -> View Model Action
+captRow :: MisoString -> Side -> [PieceType] -> View context Model Action
 captRow label side pieces =
   H.div_
     [ CSS.style_ [CSS.marginBottom "6px"] ]
@@ -1223,7 +1223,7 @@ captRow label side pieces =
     ]
 
 -- Control buttons
-viewControls :: Model -> View Model Action
+viewControls :: Model -> View context Model Action
 viewControls m =
   H.div_
     [ CSS.style_
@@ -1248,7 +1248,7 @@ viewControls m =
                          [ text "You play as White" ]
     ]
 
-chessBtn :: Color -> Color -> MisoString -> Action -> View Model Action
+chessBtn :: Color -> Color -> MisoString -> Action -> View context Model Action
 chessBtn bg fg lbl act =
   H.button_
     [ CSS.style_
@@ -1271,7 +1271,7 @@ chessBtn bg fg lbl act =
     ]
     [ text lbl ]
 
-gameOverBadge :: MisoString -> View Model Action
+gameOverBadge :: MisoString -> View context Model Action
 gameOverBadge msg =
   H.div_
     [ CSS.style_
