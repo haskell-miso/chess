@@ -1,5 +1,7 @@
 dist-*
 public
 *~
-
+result
+.direnv
+cabal.project.local*
 /TAGS

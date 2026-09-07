@@ -1,4 +1,4 @@
-.PHONY= update build optim
+.PHONY= all update build optim serve clean test
 
 all: clean update build optim
 
@@ -6,7 +6,7 @@ update:
 	wasm32-wasi-cabal update
 
 build:
-	wasm32-wasi-cabal build 
+	wasm32-wasi-cabal build
 	rm -rf public
 	cp -r static public
 	$(eval my_wasm=$(shell wasm32-wasi-cabal list-bin app | tail -n 1))
@@ -20,6 +20,8 @@ optim:
 serve:
 	http-server public
 
+test:
+	cabal test
+
 clean:
 	rm -rf dist-newstyle public
-

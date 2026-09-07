@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://chess.haskell-miso.org/sitemap.xml
