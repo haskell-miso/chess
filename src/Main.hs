@@ -328,7 +328,8 @@ pieceValue Rook   = 500
 pieceValue Queen  = 900
 pieceValue King   = 20000
 
--- Piece-square tables (rank 0 = white back rank for White; mirrored for Black)
+-- Piece-square tables, written from White's point of view with rank 8 first:
+-- row 0 is rank 8, row 7 is rank 1 (so a pawn's +50 row is the 7th rank).
 pstTable :: PieceType -> [[Int]]
 pstTable Pawn =
   [ [ 0,  0,  0,  0,  0,  0,  0,  0]
@@ -376,20 +377,22 @@ pstTable Queen =
   , [-10,  0,  5, 0, 0,  0,  0,-10]
   , [-20,-10,-10,-5,-5,-10,-10,-20] ]
 pstTable King =
-  [ [ 20, 30, 10,  0,  0, 10, 30, 20]
-  , [ 20, 20,  0,  0,  0,  0, 20, 20]
-  , [-10,-20,-20,-20,-20,-20,-20,-10]
+  [ [-30,-40,-40,-50,-50,-40,-40,-30]
+  , [-30,-40,-40,-50,-50,-40,-40,-30]
+  , [-30,-40,-40,-50,-50,-40,-40,-30]
+  , [-30,-40,-40,-50,-50,-40,-40,-30]
   , [-20,-30,-30,-40,-40,-30,-30,-20]
-  , [-30,-40,-40,-50,-50,-40,-40,-30]
-  , [-30,-40,-40,-50,-50,-40,-40,-30]
-  , [-30,-40,-40,-50,-50,-40,-40,-30]
-  , [-30,-40,-40,-50,-50,-40,-40,-30] ]
+  , [-10,-20,-20,-20,-20,-20,-20,-10]
+  , [ 20, 20,  0,  0,  0,  0, 20, 20]
+  , [ 20, 30, 10,  0,  0, 10, 30, 20] ]
 
+-- Rank r (0-7) indexes the tables from the back, so White reads row (7 - r);
+-- Black reads the same table mirrored vertically, which is simply row r.
 pstScore :: PieceType -> Square -> Side -> Int
 pstScore pt (f,r) side =
-  let rank = if side == White then r else 7 - r
-      tbl  = pstTable pt
-  in (tbl !! rank) !! f
+  let row = if side == White then 7 - r else r
+      tbl = pstTable pt
+  in (tbl !! row) !! f
 
 evalBoard :: Board -> Int
 evalBoard board = sum
