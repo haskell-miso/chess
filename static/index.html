@@ -1,15 +1,102 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>♟️ miso-chess </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover">
+
+    <title>Chess — Play Free Online Against the Computer · Miso Chess</title>
+    <meta name="description" content="Play chess free in your browser against a built-in engine with four strengths. Legal moves shown, undo, hints, an evaluation bar, and the full game record. No ads, no signup, works on mobile.">
+    <link rel="canonical" href="https://chess.haskell-miso.org/">
+    <meta name="theme-color" content="#101419">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♞</text></svg>">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Miso Chess">
+    <meta property="og:title" content="Chess — Play Free Online Against the Computer">
+    <meta property="og:description" content="A quiet game of chess against a built-in engine. Four strengths, hints, undo, evaluation bar. Free, no ads, works on mobile.">
+    <meta property="og:url" content="https://chess.haskell-miso.org/">
+    <meta property="og:image" content="https://chess.haskell-miso.org/social.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="The Miso Chess board">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Chess — Play Free Online Against the Computer">
+    <meta name="twitter:description" content="A quiet game of chess against a built-in engine. Four strengths, hints, undo, evaluation bar. Free, no ads, works on mobile.">
+    <meta name="twitter:image" content="https://chess.haskell-miso.org/social.jpg">
+
+    <!-- Performance -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=Manrope:wght@500;600;700;800&display=swap">
+    <link rel="modulepreload" href="index.js">
+    <link rel="modulepreload" href="ghc_wasm_jsffi.js">
+    <link rel="preload" href="app.wasm" as="fetch" crossorigin="anonymous">
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "VideoGame",
+      "name": "Miso Chess",
+      "url": "https://chess.haskell-miso.org/",
+      "image": "https://chess.haskell-miso.org/social.jpg",
+      "description": "Free online chess against a built-in engine with four strengths. Legal moves shown, undo, hints, an evaluation bar, and the full game record in algebraic notation.",
+      "genre": ["Board game", "Strategy game"],
+      "playMode": "SinglePlayer",
+      "gamePlatform": "Web browser",
+      "applicationCategory": "Game",
+      "operatingSystem": "Any",
+      "browserRequirements": "Requires JavaScript and WebAssembly",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      },
+      "author": { "@type": "Person", "name": "David M. Johnson" }
+    }
+    </script>
+
+    <style>
+      html, body { margin: 0; padding: 0; background: #101419; }
+      #loading {
+        position: fixed; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; text-align: center;
+        gap: 10px; padding: 24px; color: #8A94A6;
+        font-family: 'Manrope', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+        background:
+          radial-gradient(60% 45% at 50% 0%, rgba(150,170,205,.13), rgba(0,0,0,0) 70%),
+          linear-gradient(180deg, #131820 0%, #101419 50%, #0C0F13 100%);
+      }
+      #loading h1 {
+        margin: 0; color: #E7DFCC; font-size: clamp(64px, 14vmin, 120px);
+        line-height: .9; font-weight: 600; font-style: italic;
+        font-family: 'Cormorant Garamond', Georgia, serif;
+      }
+      #loading p { max-width: 540px; line-height: 1.6; margin: 4px 0; font-size: 15px; }
+      #loading .dim { color: #59637A; font-size: 13px; }
+      #loading .pulse { animation: lpulse 1.2s ease-in-out infinite; }
+      @keyframes lpulse { 0%, 100% { opacity: .45 } 50% { opacity: 1 } }
+    </style>
   </head>
 
   <body>
+    <div id="loading">
+      <h1>Chess</h1>
+      <p>A quiet game against a built-in engine. Choose your colour and one of
+        four strengths, from casual to master. Legal moves are shown as you
+        play, with hints, undo, an evaluation bar, and the full game record
+        in algebraic notation.</p>
+      <p>Free in your browser. No ads, no signup, plays well on a phone.</p>
+      <p class="dim pulse">setting up the pieces…</p>
+      <noscript><p><strong>Miso Chess requires JavaScript and
+        WebAssembly.</strong> Enable JavaScript to play.</p></noscript>
+    </div>
 
     <script src="index.js" type="module"></script>
 
   </body>
 </html>
-
