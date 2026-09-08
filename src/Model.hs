@@ -34,6 +34,35 @@ data Phase
 data SideChoice = PlayWhite | PlayBlack | PlayRandom
   deriving (Eq, Show)
 -----------------------------------------------------------------------------
+-- | A piece under the pointer.  Pressing one of your own men arms a drag
+-- without committing to one, so a plain click still selects; once the
+-- pointer has travelled far enough the piece leaves the board and follows
+-- the cursor until it is released.
+data Drag
+  = Armed Square (Double, Double)
+    -- ^ pressed on this square, at this viewport point
+  | Lifted Square (Maybe Square)
+    -- ^ lifted from this square, currently over that one
+  deriving (Eq, Show)
+-----------------------------------------------------------------------------
+-- | The square a drag started from, armed or lifted.
+dragFrom :: Drag -> Square
+dragFrom = \case
+  Armed sq _ -> sq
+  Lifted sq _ -> sq
+-----------------------------------------------------------------------------
+-- | The square a lifted piece is being held over, if it is held over one.
+dragOver :: Drag -> Maybe Square
+dragOver = \case
+  Armed _ _ -> Nothing
+  Lifted _ over -> over
+-----------------------------------------------------------------------------
+-- | Is the piece off the board and on the cursor?
+lifted :: Maybe Drag -> Bool
+lifted = \case
+  Just (Lifted _ _) -> True
+  _ -> False
+-----------------------------------------------------------------------------
 data Model = Model
   { _position :: Position
   , _plies :: [Ply]              -- ^ newest first
@@ -44,6 +73,8 @@ data Model = Model
   , _sideChoice :: SideChoice
   , _selected :: Maybe Square
   , _targets :: [Move]           -- ^ legal moves from the selected square
+  , _drag :: Maybe Drag          -- ^ the piece the pointer is carrying
+  , _dropped :: Maybe Int        -- ^ a piece placed by hand: it must not slide
   , _promotion :: Maybe (Square, Square) -- ^ a pawn waiting for its piece
   , _hint :: Maybe Move
   , _thinking :: Bool
@@ -66,6 +97,12 @@ data Action
   | StartGame                 -- ^ title button; inits audio and drag
   | Begin [Double]            -- ^ randomness for the side pick
   | Tap Square
+  | DragPress Square (Double, Double) -- ^ pointer down on a square
+  | DragMove (Double, Double)         -- ^ pointer moved while a drag is armed
+  | DragOver Square                   -- ^ a lifted piece crossed onto a square
+  | DragDrop Square                   -- ^ released over a square
+  | DragCancel                        -- ^ released anywhere else, or cancelled
+  | DragSettle                        -- ^ a dropped piece may animate again
   | Promote PieceType
   | CancelPromotion
   | EngineReply Int [Double]  -- ^ pacer stamp, search randomness
@@ -92,6 +129,8 @@ initialModel = Model
   , _sideChoice = PlayWhite
   , _selected = Nothing
   , _targets = []
+  , _drag = Nothing
+  , _dropped = Nothing
   , _promotion = Nothing
   , _hint = Nothing
   , _thinking = False
