@@ -57,8 +57,7 @@ DOM:
 ## Build (WASM)
 
 ```bash
-nix develop .#wasm --command make
-make serve   # serves public/ on :8080
+nix develop .#wasm --command bash -C 'make && make serve'
 ```
 
 ## Tests
