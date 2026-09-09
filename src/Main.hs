@@ -30,7 +30,12 @@ import           Sound
 import           Styles (skin)
 -----------------------------------------------------------------------------
 main :: IO ()
-main = startApp defaultEvents app
+main = startApp boardEvents app
+-----------------------------------------------------------------------------
+-- | Everything that has to be delegated: the defaults, the pointer events
+-- miso groups together, and @pointermove@, which that group leaves out.
+boardEvents :: Events
+boardEvents = defaultEvents <> pointerEvents <> Map.singleton "pointermove" BUBBLE
 -----------------------------------------------------------------------------
 app :: App Model Action
 app = (component initialModel updateModel viewModel)
@@ -108,17 +113,66 @@ updateModel = \case
                   playFx "select"
         _ -> selectSquare sq
 
+  -- A press arms a drag but does not select: a click that never travelled
+  -- is a tap, and the tap flow above still owns it.
+  DragPress sq point -> do
+    m <- get
+    drag .= if canAct m && ownPieceAt m sq then Just (Armed sq point) else Nothing
+
+  DragMove (x, y) -> do
+    m <- get
+    case m ^. drag of
+      Just (Armed from (ax, ay))
+        | (x - ax) ** 2 + (y - ay) ** 2 > 36 -> do
+            unless (m ^. selected == Just from) (selectSquare from)
+            drag .= Just (Lifted from Nothing)
+      _ -> pure ()
+
+  DragOver sq -> do
+    m <- get
+    case m ^. drag of
+      Just (Lifted from held) | held /= Just sq ->
+        drag .= Just (Lifted from (Just sq))
+      _ -> pure ()
+
+  DragDrop sq -> do
+    m <- get
+    case m ^. drag of
+      Just (Lifted from _) -> do
+        drag .= Nothing
+        case [ t | t <- m ^. targets, mvTo t == sq ] of
+          -- The piece is already under the cursor, so it must not slide
+          -- there from the square it left.
+          (t : more) -> do
+            dropped .= fmap pieceId (Map.lookup from (posBoard (m ^. position)))
+            if null more
+              then do
+                settleSoon
+                humanMove t
+              else do
+                promotion .= Just (from, sq)
+                playFx "select"
+          [] | sq /= from, ownPieceAt m sq -> selectSquare sq
+             | otherwise -> pure ()               -- home again, still selected
+      _ -> drag .= Nothing
+
+  DragCancel -> drag .= Nothing
+
+  DragSettle -> dropped .= Nothing
+
   Promote pt -> do
     m <- get
     case m ^. promotion of
       Just (from, to) -> do
         promotion .= Nothing
+        settleSoon
         humanMove (Move from to (Just pt))
       Nothing -> pure ()
 
   CancelPromotion -> do
     promotion .= Nothing
     hint .= Nothing
+    dropped .= Nothing
     clearSelection
 
   EngineReply stamp supply -> do
@@ -204,10 +258,21 @@ canAct :: Model -> Bool
 canAct m =
   humanToMove m && not (m ^. thinking) && isNothing (m ^. promotion) && not (m ^. showHelp)
 -----------------------------------------------------------------------------
+-- | Does one of the player's own men stand here?
+ownPieceAt :: Model -> Square -> Bool
+ownPieceAt m sq =
+  fmap pieceColor (Map.lookup sq (posBoard (m ^. position))) == Just (m ^. human)
+-----------------------------------------------------------------------------
+-- | Let a piece that was placed by hand animate again, once the redraw
+-- that put it down has been and gone.
+settleSoon :: Fx
+settleSoon = io (threadDelay 80000 >> pure DragSettle)
+-----------------------------------------------------------------------------
 clearSelection :: Fx
 clearSelection = do
   selected .= Nothing
   targets .= []
+  drag .= Nothing
 -----------------------------------------------------------------------------
 selectSquare :: Square -> Fx
 selectSquare sq = do
@@ -342,11 +407,35 @@ pgn m = unlines headers ++ "\n" ++ unwords (numbered 1 sans ++ [result])
 viewModel :: () -> () -> Model -> View () Model Action
 viewModel _ _ m = case m ^. phase of
   Title -> H.div_ [] (titleView m : [ helpOverlay | m ^. showHelp ])
-  _ -> H.div_ []
+  _ -> H.div_
+    ( [ HP.class_ (joinCls [ "app", clsWhen (lifted (m ^. drag)) "lifting" ])
+      -- released or cancelled anywhere but a square: put the piece back
+      , HE.onPointerUp (const DragCancel)
+      , HE.onPointerCancel (const DragCancel)
+      ]
+      ++ [ HE.onPointerMove (DragMove . client) | armed ]
+    )
     ( [ topbar m, stage m ]
+      ++ liftedPiece m
       ++ [ resultOverlay m | m ^. phase == Over, not (m ^. reviewing) ]
       ++ [ helpOverlay | m ^. showHelp ]
     )
+  where
+    -- only while a press is waiting to become a drag: once the piece is
+    -- up, the squares it crosses report the position themselves
+    armed = case m ^. drag of
+      Just (Armed _ _) -> True
+      _ -> False
+-----------------------------------------------------------------------------
+-- | The piece being dragged, drawn at the pointer.  It sits outside the
+-- board on purpose: the board is rotated when you play black, and a
+-- rotated ancestor would take over the placement of anything fixed
+-- inside it.  "Drag" keeps the coordinates it is placed by up to date.
+liftedPiece :: Model -> [View () Model Action]
+liftedPiece m = case m ^. drag of
+  Just (Lifted from _) | Just p <- Map.lookup from (posBoard (m ^. position)) ->
+    [ H.div_ [ HP.class_ "lift" ] [ pieceSvg (pieceColor p) (pieceType p) ] ]
+  _ -> []
 -----------------------------------------------------------------------------
 titleView :: Model -> View () Model Action
 titleView m = H.div_ [ HP.class_ "title" ]
@@ -502,7 +591,7 @@ boardView m = H.div_
   ( [ squareView m (f, r) | r <- [7, 6 .. 0], f <- [0 .. 7] ]
     ++ [ H.div_ [ HP.class_ "grain" ] []
        , H.div_ [ HP.class_ "pieces" ]
-           [ pieceView sq p | (sq, p) <- sortOn (pieceId . snd) (Map.toList board) ]
+           [ pieceView m sq p | (sq, p) <- sortOn (pieceId . snd) (Map.toList board) ]
        ]
     ++ promotionTray m
   )
@@ -511,20 +600,25 @@ boardView m = H.div_
 -----------------------------------------------------------------------------
 squareView :: Model -> Square -> View () Model Action
 squareView m sq@(f, r) = H.div_
-  [ HP.class_ (joinCls
-      [ "sq", if even (f + r) then "dark" else "light"
-      , clsWhen own "own"
-      , clsWhen (m ^. selected == Just sq) "sel"
-      , clsWhen isLast "last"
-      , clsWhen (isTarget && not occupied) "dot"
-      , clsWhen (isTarget && occupied) "cap"
-      , clsWhen isCheck "check"
-      , clsWhen (fmap mvFrom (m ^. hint) == Just sq) "hintFrom"
-      , clsWhen (fmap mvTo (m ^. hint) == Just sq) "hintTo"
-      ])
-  , textProp "data-sq" (ms (squareName sq))
-  , HE.onClick (Tap sq)
-  ]
+  ( [ HP.class_ (joinCls
+        [ "sq", if even (f + r) then "dark" else "light"
+        , clsWhen own "own"
+        , clsWhen (m ^. selected == Just sq) "sel"
+        , clsWhen isLast "last"
+        , clsWhen (isTarget && not occupied) "dot"
+        , clsWhen (isTarget && occupied) "cap"
+        , clsWhen isCheck "check"
+        , clsWhen (fmap mvFrom (m ^. hint) == Just sq) "hintFrom"
+        , clsWhen (fmap mvTo (m ^. hint) == Just sq) "hintTo"
+        , clsWhen (isTarget && (m ^. drag >>= dragOver) == Just sq) "drop"
+        ])
+    , HE.onClick (Tap sq)
+    , HE.onPointerDown (\e -> if button e == 0 then DragPress sq (client e) else NoOp)
+    , HE.onPointerUp (const (DragDrop sq))
+    ]
+    -- while a piece is up, every square it crosses says so
+    ++ [ HE.onPointerEnter (const (DragOver sq)) | lifted (m ^. drag) ]
+  )
   ( [ H.span_ [ HP.class_ "coord rank" ] [ text (ms [rankChar r]) ] | f == edgeFile ]
     ++ [ H.span_ [ HP.class_ "coord file" ] [ text (ms [fileChar f]) ] | r == edgeRank ]
   )
@@ -535,7 +629,7 @@ squareView m sq@(f, r) = H.div_
     edgeRank = if m ^. flipped then 7 else 0
     here = Map.lookup sq board
     occupied = isJust here || (isTarget && Just sq == posEP pos)
-    own = canAct m && fmap pieceColor here == Just (m ^. human)
+    own = canAct m && ownPieceAt m sq
     isTarget = any ((== sq) . mvTo) (m ^. targets)
     isLast = case lastMove m of
       Just mv -> mvFrom mv == sq || mvTo mv == sq
@@ -545,15 +639,21 @@ squareView m sq@(f, r) = H.div_
       Mate winner -> findKing board (opponent winner) == Just sq
       _ -> False
 -----------------------------------------------------------------------------
-pieceView :: Square -> Piece -> View () Model Action
-pieceView sq@(f, r) p = H.div_
+pieceView :: Model -> Square -> Piece -> View () Model Action
+pieceView m sq@(f, r) p = H.div_
   [ key_ (pieceId p)
-  , HP.class_ "pc"
-  , textProp "data-sq" (ms (squareName sq))
+  , HP.class_ (joinCls
+      [ "pc"
+      , clsWhen up "lifted"
+      , clsWhen (m ^. dropped == Just (pieceId p)) "placed"
+      ])
   , CSS.style_
       [ CSS.transform ("translate(" <> ms (f * 100) <> "%, " <> ms ((7 - r) * 100) <> "%)") ]
   ]
   [ pieceSvg (pieceColor p) (pieceType p) ]
+  where
+    -- off the board and on the cursor: "liftedPiece" is drawing it now
+    up = fmap dragFrom (m ^. drag) == Just sq && lifted (m ^. drag)
 -----------------------------------------------------------------------------
 promotionTray :: Model -> [View () Model Action]
 promotionTray m = case m ^. promotion of

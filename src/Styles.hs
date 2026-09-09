@@ -87,6 +87,7 @@ skin = sheet_
   , selector_ "button:focus-visible"
       [ CSS.outline "2px solid #7FD7B5", CSS.outlineOffset "3px" ]
   , selector_ ".psvg" [ CSS.display "block" ]
+  , selector_ ".app" [ CSS.minHeight "100dvh" ]
   -- title screen ---------------------------------------------------------------
   , selector_ ".title"
       [ CSS.minHeight "100dvh", CSS.display "flex", CSS.flexDirection "column"
@@ -288,6 +289,8 @@ skin = sheet_
       [ CSS.boxShadow "inset 0 0 0 4px rgba(243,238,227,.95)", CSS.zIndex 2 ]
   , selector_ ".sq.own" [ CSS.cursor "grab" ]
   , selector_ ".sq.dot, .sq.cap" [ CSS.cursor "pointer" ]
+  , selector_ ".lifting .sq, .lifting .sq.own, .lifting .sq.dot, .lifting .sq.cap"
+      [ CSS.cursor "grabbing" ]
   -- the pieces
   , selector_ ".pieces"
       [ CSS.position "absolute", "inset" =: "0", CSS.pointerEvents "none", CSS.zIndex 3 ]
@@ -303,13 +306,23 @@ skin = sheet_
       , CSS.transition "transform .65s cubic-bezier(.65,0,.35,1)"
       ]
   , selector_ ".flipped .pc .psvg" [ CSS.transform "rotate(180deg)" ]
-  , selector_ ".pc.lifted" [ CSS.opacity 0.28 ]
-  , selector_ ".pc.ghost"
-      [ CSS.position "fixed", CSS.left "0", CSS.top "0", CSS.zIndex 1000
-      , CSS.transform "translate(-50%, -60%) scale(1.14)", CSS.transition "none"
-      , CSS.pointerEvents "none", CSS.opacity 0.96
+  -- the piece the cursor is carrying is gone from the board entirely, and
+  -- when it lands it is already where it belongs: no slide from its old
+  -- square
+  , selector_ ".pc.lifted" [ CSS.display "none" ]
+  , selector_ ".pc.placed" [ CSS.transition "none" ]
+  -- the piece on the cursor: exactly one square across, centred on the
+  -- pointer, at the coordinates "Drag" keeps in --dgx / --dgy
+  , selector_ ".lift"
+      [ CSS.position "fixed", CSS.left "var(--dgx, 50vw)", CSS.top "var(--dgy, 50vh)"
+      , CSS.width "var(--dgs, var(--sq))", CSS.height "var(--dgs, var(--sq))"
+      , CSS.transform "translate(-50%, -50%)"
+      , CSS.pointerEvents "none", CSS.zIndex 1000
       ]
-  , selector_ ".pc.ghost .psvg" [ CSS.filter "drop-shadow(0 14px 14px rgba(0,0,0,.5))" ]
+  , selector_ ".lift .psvg"
+      [ CSS.width "100%", CSS.height "100%"
+      , CSS.filter "drop-shadow(0 12px 12px rgba(0,0,0,.5))"
+      ]
   -- promotion tray
   , selector_ ".promoBackdrop"
       [ CSS.position "absolute", "inset" =: "0", CSS.zIndex 4
