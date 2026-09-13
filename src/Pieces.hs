@@ -18,7 +18,7 @@ import           Miso.String (MisoString)
 import           Chess
 -----------------------------------------------------------------------------
 -- | A piece drawn to fill its box; the caller sizes it with CSS.
-pieceSvg :: Side -> PieceType -> View context model action
+pieceSvg :: Side -> PieceType -> View context props model action
 pieceSvg side pt =
   SVG.svg_
     [ SP.viewBox_ "0 0 45 45", HP.class_ "psvg" ]
@@ -42,10 +42,10 @@ pieceGlyph White = \case
 pieceGlyph Black = \case
   King -> "♚"; Queen -> "♛"; Rook -> "♜"; Bishop -> "♝"; Knight -> "♞"; Pawn -> "♟"
 -----------------------------------------------------------------------------
-pth :: MisoString -> [Attribute model action] -> View context model action
+pth :: MisoString -> [Attribute model action] -> View context props model action
 pth dd extra = SVG.path_ (SP.d_ dd : extra)
 -----------------------------------------------------------------------------
-shapes :: Side -> PieceType -> [View context model action]
+shapes :: Side -> PieceType -> [View context props model action]
 shapes side pt = case pt of
 
   Pawn ->

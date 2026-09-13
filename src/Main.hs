@@ -404,8 +404,8 @@ pgn m = unlines headers ++ "\n" ++ unwords (numbered 1 sans ++ [result])
 -----------------------------------------------------------------------------
 -- * View
 -----------------------------------------------------------------------------
-viewModel :: () -> () -> Model -> View () Model Action
-viewModel _ _ m = case m ^. phase of
+viewModel :: Model -> View () () Model Action
+viewModel m = case m ^. phase of
   Title -> H.div_ [] (titleView m : [ helpOverlay | m ^. showHelp ])
   _ -> H.div_
     ( [ HP.class_ (joinCls [ "app", clsWhen (lifted (m ^. drag)) "lifting" ])
@@ -431,13 +431,13 @@ viewModel _ _ m = case m ^. phase of
 -- board on purpose: the board is rotated when you play black, and a
 -- rotated ancestor would take over the placement of anything fixed
 -- inside it.  "Drag" keeps the coordinates it is placed by up to date.
-liftedPiece :: Model -> [View () Model Action]
+liftedPiece :: Model -> [View () () Model Action]
 liftedPiece m = case m ^. drag of
   Just (Lifted from _) | Just p <- Map.lookup from (posBoard (m ^. position)) ->
     [ H.div_ [ HP.class_ "lift" ] [ pieceSvg (pieceColor p) (pieceType p) ] ]
   _ -> []
 -----------------------------------------------------------------------------
-titleView :: Model -> View () Model Action
+titleView :: Model -> View () () Model Action
 titleView m = H.div_ [ HP.class_ "title" ]
   [ H.div_ [ HP.class_ "heroKnight" ] [ pieceSvg White Knight ]
   , H.h1_ [ HP.class_ "wordmark" ] [ text "Chess" ]
@@ -475,7 +475,7 @@ titleView m = H.div_ [ HP.class_ "title" ]
       , H.span_ [] [ text (ms (levelBlurb lv)) ]
       ]
 -----------------------------------------------------------------------------
-topbar :: Model -> View () Model Action
+topbar :: Model -> View () () Model Action
 topbar m = H.div_ [ HP.class_ "top" ]
   [ H.div_ [ HP.class_ "brand" ] [ pieceSvg White Knight, text "Chess" ]
   , H.div_ [ HP.class_ "hud" ]
@@ -492,7 +492,7 @@ topbar m = H.div_ [ HP.class_ "top" ]
       [ HP.class_ "tool", HE.onClick act, HP.title_ label ]
       [ text icon, H.span_ [] [ text label ] ]
 -----------------------------------------------------------------------------
-stage :: Model -> View () Model Action
+stage :: Model -> View () () Model Action
 stage m = H.div_ [ HP.class_ "stage" ]
   [ plate m (engineSide m)
   , evalBar m
@@ -502,7 +502,7 @@ stage m = H.div_ [ HP.class_ "stage" ]
   , actionsView m
   ]
 -----------------------------------------------------------------------------
-plate :: Model -> Side -> View () Model Action
+plate :: Model -> Side -> View () () Model Action
 plate m side = H.div_
   [ HP.class_ (joinCls
       [ "plate", if isYou then "you" else "engine"
@@ -551,7 +551,7 @@ capturedBy board side =
     left = materialLeft board (opponent side)
     army = [ (Queen, 1), (Rook, 2), (Bishop, 2), (Knight, 2), (Pawn, 8) ]
 -----------------------------------------------------------------------------
-evalBar :: Model -> View () Model Action
+evalBar :: Model -> View () () Model Action
 evalBar m = H.div_ [ HP.class_ "evalWrap" ]
   [ H.div_ [ HP.class_ "eval" ]
       [ H.div_ [ HP.class_ "evalFill", CSS.style_ [ "--share" =: (ms share <> "%") ] ] [] ]
@@ -578,14 +578,14 @@ evalBar m = H.div_ [ HP.class_ "evalWrap" ]
             body = ms (tenths `div` 10) <> "." <> ms (tenths `mod` 10)
         in (if cp < 0 then "−" else "+") <> body
 -----------------------------------------------------------------------------
-boardWrap :: Model -> View () Model Action
+boardWrap :: Model -> View () () Model Action
 boardWrap m = H.div_
   [ HP.class_ (joinCls [ "boardWrap", clsWhen inCheck "inCheck" ]) ]
   [ boardView m ]
   where
     inCheck = m ^. gameStatus == Check
 -----------------------------------------------------------------------------
-boardView :: Model -> View () Model Action
+boardView :: Model -> View () () Model Action
 boardView m = H.div_
   [ HP.class_ (joinCls [ "board", clsWhen (m ^. flipped) "flipped" ]) ]
   ( [ squareView m (f, r) | r <- [7, 6 .. 0], f <- [0 .. 7] ]
@@ -598,7 +598,7 @@ boardView m = H.div_
   where
     board = posBoard (m ^. position)
 -----------------------------------------------------------------------------
-squareView :: Model -> Square -> View () Model Action
+squareView :: Model -> Square -> View () () Model Action
 squareView m sq@(f, r) = H.div_
   ( [ HP.class_ (joinCls
         [ "sq", if even (f + r) then "dark" else "light"
@@ -639,7 +639,7 @@ squareView m sq@(f, r) = H.div_
       Mate winner -> findKing board (opponent winner) == Just sq
       _ -> False
 -----------------------------------------------------------------------------
-pieceView :: Model -> Square -> Piece -> View () Model Action
+pieceView :: Model -> Square -> Piece -> View () () Model Action
 pieceView m sq@(f, r) p = H.div_
   [ key_ (pieceId p)
   , HP.class_ (joinCls
@@ -655,7 +655,7 @@ pieceView m sq@(f, r) p = H.div_
     -- off the board and on the cursor: "liftedPiece" is drawing it now
     up = fmap dragFrom (m ^. drag) == Just sq && lifted (m ^. drag)
 -----------------------------------------------------------------------------
-promotionTray :: Model -> [View () Model Action]
+promotionTray :: Model -> [View () () Model Action]
 promotionTray m = case m ^. promotion of
   Nothing -> []
   Just (_, (tf, tr)) ->
@@ -675,7 +675,7 @@ promotionTray m = case m ^. promotion of
   where
     choices = [ Queen, Knight, Rook, Bishop ]
 -----------------------------------------------------------------------------
-movesView :: Model -> View () Model Action
+movesView :: Model -> View () () Model Action
 movesView m = H.div_ [ HP.class_ "moves" ]
   ( if null sans
       then [ H.div_ [ HP.class_ "movesEmpty" ] [ text opening ] ]
@@ -699,7 +699,7 @@ movesView m = H.div_ [ HP.class_ "moves" ]
       [ HP.class_ (joinCls [ "mv", clsWhen (k == total) "cur" ]) ]
       [ text (ms s) ]
 -----------------------------------------------------------------------------
-actionsView :: Model -> View () Model Action
+actionsView :: Model -> View () () Model Action
 actionsView m = H.div_ [ HP.class_ "actions" ]
   [ act Undo "Undo" (not (null (m ^. plies)))
   , act AskHint "Hint" (canAct m)
@@ -713,7 +713,7 @@ actionsView m = H.div_ [ HP.class_ "actions" ]
       [ HP.class_ "act", HE.onClick a, boolProp "disabled" (not enabled) ]
       [ text label ]
 -----------------------------------------------------------------------------
-resultOverlay :: Model -> View () Model Action
+resultOverlay :: Model -> View () () Model Action
 resultOverlay m = H.div_ [ HP.class_ "overlay" ]
   [ H.div_ [ HP.class_ "modal" ]
       [ H.div_ [ HP.class_ "resultKicker" ] [ text kicker ]
@@ -761,7 +761,7 @@ resultOverlay m = H.div_ [ HP.class_ "overlay" ]
       [ HP.class_ "stat", CSS.style_ [ CSS.animationDelay (ms (150 + k * 110 :: Int) <> "ms") ] ]
       [ H.b_ [] [ text v ], H.span_ [] [ text label ] ]
 -----------------------------------------------------------------------------
-helpOverlay :: View () Model Action
+helpOverlay :: View () () Model Action
 helpOverlay = H.div_ [ HP.class_ "overlay" ]
   [ H.div_ [ HP.class_ "modal help" ]
       [ H.button_ [ HP.class_ "helpClose", HE.onClick CloseHelp, HP.title_ "Close" ] [ text "✕" ]
